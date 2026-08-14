@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FuelType {
+  GAS
+  DIESEL
+  ELECTRIC
+}
+
+enum ForkliftStatus {
+  NORMAL
+  WARNING
+  OVERDUE
+}
+
+enum JobType {
+  OIL_CHANGE
+  ENGINE_REPAIR
+  TOWING
+  PARTS_REPLACEMENT
+  INSPECTION
+  OTHER
+}
+
+enum JobStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AlertStatus {
+  PENDING
+  SENT
+  ACKNOWLEDGED
+}
+
+enum AlertType {
+  OIL_CHANGE
+  INSPECTION
+  CUSTOM
+}
+
+model FtCustomer {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  company    String?
+  phone      String?
+  lineId     String?
+  lineUserId String?
+  email      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  forklifts  FtForklift[]
+  repairJobs FtRepairJob[]
+
+  @@map("ft_customers")
+}
+
+model FtForklift {
+  id               String         @id @default(uuid()) @db.Uuid
+  customerId       String         @db.Uuid
+  code             String
+  brand            String?
+  model            String?
+  serialNumber     String?
+  fuelType         FuelType?
+  hoursCurrent     Int            @default(0)
+  hoursNextService Int            @default(250)
+  status           ForkliftStatus @default(NORMAL)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  customer   FtCustomer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  repairJobs FtRepairJob[]
+  alerts     FtMaintenanceAlert[]
+
+  @@index([customerId])
+  @@map("ft_forklifts")
+}
+
+model FtRepairJob {
+  id             String    @id @default(uuid()) @db.Uuid
+  forkliftId     String    @db.Uuid
+  customerId     String    @db.Uuid
+  invoiceId      String?
+  type           JobType
+  description    String?
+  hoursAtService Int?
+  cost           Decimal?  @db.Decimal(10, 2)
+  status         JobStatus @default(PENDING)
+  technicianName String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  forklift FtForklift @relation(fields: [forkliftId], references: [id], onDelete: Cascade)
+  customer FtCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([forkliftId])
+  @@index([customerId])
+  @@map("ft_repair_jobs")
+}
+
+model FtMaintenanceAlert {
+  id         String      @id @default(uuid()) @db.Uuid
+  forkliftId String      @db.Uuid
+  alertType  AlertType   @default(OIL_CHANGE)
+  dueHours   Int
+  message    String?
+  sentAt     DateTime?
+  status     AlertStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+
+  forklift FtForklift @relation(fields: [forkliftId], references: [id], onDelete: Cascade)
+
+  @@index([forkliftId])
+  @@map("ft_maintenance_alerts")
+}
